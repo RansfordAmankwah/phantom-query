@@ -1,15 +1,19 @@
 # Render Blueprint for the Phantom Query backend.
 # The frontend stays on Cloudflare Pages; the app database stays on Neon.
 #
-# Paths: dockerfilePath and dockerContext are relative to the REPO ROOT,
-# not to rootDir. rootDir only scopes which changes trigger a deploy.
+# No rootDir on purpose: with rootDir set, Render resolved dockerContext
+# relative to it (backend/backend, build failed). Without rootDir, both
+# paths are plainly relative to the repo root. buildFilter does the other
+# job rootDir did: only backend changes trigger a backend deploy.
 services:
   - type: web
     name: phantom-query-api
     runtime: docker
-    rootDir: backend
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    buildFilter:
+      paths:
+        - backend/**
     # Pick the region closest to your Neon database. Every query makes
     # several round trips to Neon, so cross-ocean latency adds up fast.
     # Cannot be changed after the service is created.
