@@ -70,11 +70,7 @@ login: (email: string, password: string) =>
   getSchema: (connectionId: string) =>
     request<SchemaSnapshot>(`/connections/${connectionId}/schema`),
 
-  generateSql: (connectionId: string, question: string) =>
-    request<NLQueryResponse>("/query/generate", {
-      method: "POST",
-      body: JSON.stringify({ connection_id: connectionId, question }),
-    }),
+  
 
   validateSql: (connectionId: string, sql: string) =>
     request<ValidationResult>("/query/validate", {

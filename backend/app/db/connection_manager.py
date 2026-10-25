@@ -74,9 +74,23 @@ def _assert_safe_host(host: str) -> None:
 
     for ip_str in ips:
         try:
-            addr = ipaddress.ip_address(ip_str)
+            # Strip an IPv6 zone id ("fe80::1%eth0") before parsing.
+            addr = ipaddress.ip_address(ip_str.split("%", 1)[0])
         except ValueError:
             continue
+        # "::ffff:10.0.0.5" is an IPv4 address in IPv6 clothing; judge it
+        # as the IPv4 address it actually reaches.
+        if addr.version == 6 and addr.ipv4_mapped is not None:
+            addr = addr.ipv4_mapped
+        # is_global is the allowlist view: it also rejects ranges the
+        # is_private check misses, e.g. 100.64.0.0/10 (carrier-grade NAT,
+        # used for some cloud-internal networking), 0.0.0.0/8 and reserved
+        # blocks. Hosting platforms differ in which private ranges their
+        # internal network uses, so block everything non-public.
+        if not addr.is_global:
+            raise ValueError(
+                "Could not connect to the database. Check your host, port, credentials, and SSL setting."
+            )
         if addr.is_loopback or addr.is_link_local or addr.is_private:
             raise ValueError(
                 "Could not connect to the database. Check your host, port, credentials, and SSL setting."
@@ -302,6 +316,10 @@ class ConnectionManager:
 
         start = time.monotonic()
         try:
+            # Re-check on every connect, not only when the connection was
+            # saved: DNS can change after creation (rebinding), and records
+            # saved before the SSRF fix were never checked at all.
+            _assert_safe_host(record.host)
             conn = dialect.connect(
                 record.host, record.port, record.database,
                 record.username, password, record.use_ssl,
@@ -343,6 +361,9 @@ class ConnectionManager:
 
     def _get_pool(self, stored: ConnectionRecord):
         if stored.id not in self._pools:
+            # Same re-check as check_health: a pool is created lazily, often
+            # long after the connection record was saved and validated.
+            _assert_safe_host(stored.host)
             dialect = get_dialect(stored.db_type)
             password = decrypt_value(stored.encrypted_password)
             self._pools[stored.id] = dialect.create_pool(

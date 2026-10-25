@@ -1,0 +1,38 @@
+# Render Blueprint for the Phantom Query backend.
+# The frontend stays on Cloudflare Pages; the app database stays on Neon.
+#
+# Paths: dockerfilePath and dockerContext are relative to the REPO ROOT,
+# not to rootDir. rootDir only scopes which changes trigger a deploy.
+services:
+  - type: web
+    name: phantom-query-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Pick the region closest to your Neon database. Every query makes
+    # several round trips to Neon, so cross-ocean latency adds up fast.
+    # Cannot be changed after the service is created.
+    region: frankfurt
+    # "free" spins down after ~15 min idle and cold-starts on the next
+    # request (tens of seconds). Fine for testing; for a demo link you
+    # hand to recruiters, switch to a paid plan (e.g. 0.5c-512mb).
+    plan: free
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://phantom-query.pages.dev
+      # Secrets: Render prompts for these once, when the Blueprint is
+      # first created. Copy them EXACTLY from Railway -- especially
+      # CREDENTIAL_ENCRYPTION_KEY (see README, Deployment).
+      - key: APP_DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

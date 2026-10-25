@@ -105,7 +105,7 @@ def check_connection_health(connection_id: str, user_id: str = Depends(get_curre
         result = connection_manager.check_health(connection_id, user_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Connection not found")
-    return ConnectionHealthOut(**result)
+    return ConnectionHealthOut(**result) 
 
 
 @router.get("/{connection_id}/schema", response_model=SchemaSnapshot)
